@@ -3,6 +3,7 @@
 import * as state from './state.js';
 import { fetchConfig, generate } from './api.js';
 import { renderAgentBar, renderMessages, renderMarkdown, escapeHtml, autoResize } from './render.js';
+import { initAssistant } from './assistant.js';
 
 let config = { defaultModel: 'anthropic/claude-sonnet-4', models: [], hasApiKey: true };
 let abortController = null;
@@ -23,6 +24,31 @@ async function init() {
   setupApiKeyField();
   setupEventListeners();
   render();
+
+  initAssistant(config, {
+    createAgent(data) {
+      state.createAgent(data.name || 'AI Created');
+      state.updateCurrentAgent({
+        model: data.model || '',
+        systemPrompt: data.systemPrompt || '',
+        messages: data.messages || [],
+      });
+      syncUIToAgent();
+      render();
+    },
+    updateCurrentAgent(data) {
+      if (data.name !== undefined) state.renameAgent(state.getCurrentId(), data.name);
+      const patch = {};
+      if (data.model !== undefined) patch.model = data.model;
+      if (data.systemPrompt !== undefined) patch.systemPrompt = data.systemPrompt;
+      if (data.messages !== undefined) patch.messages = data.messages;
+      state.updateCurrentAgent(patch);
+      syncUIToAgent();
+      render();
+    },
+    getCurrentAgent() { return state.getCurrentAgent(); },
+    getApiKey() { return apiKey; },
+  });
 }
 
 // --- Model selector ---
@@ -432,6 +458,12 @@ function render() {
     },
     onRemoveImage(msgIndex, imgIndex) {
       agent.messages[msgIndex].images.splice(imgIndex, 1);
+      state.updateCurrentAgent({ messages: agent.messages });
+      render();
+    },
+    onReorder(from, to) {
+      const [msg] = agent.messages.splice(from, 1);
+      agent.messages.splice(to, 0, msg);
       state.updateCurrentAgent({ messages: agent.messages });
       render();
     },

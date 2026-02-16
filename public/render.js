@@ -61,7 +61,10 @@ export function renderMarkdown(md) {
 
 export function autoResize(textarea) {
   textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+  const max = parseInt(getComputedStyle(textarea).maxHeight, 10) || 400;
+  const h = Math.min(textarea.scrollHeight, max);
+  textarea.style.height = h + 'px';
+  textarea.style.overflowY = textarea.scrollHeight > max ? 'auto' : 'hidden';
 }
 
 // --- Agent Bar ---
@@ -156,30 +159,55 @@ function showContextMenu(x, y, items) {
 
 // --- Messages ---
 
-export function renderMessages(messages, { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage }) {
+let dragSourceIndex = null;
+
+export function renderMessages(messages, { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage, onReorder }) {
   const area = document.getElementById('messages');
   area.innerHTML = '';
 
   const callbacks = { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage };
 
   // Insert point at top
-  area.appendChild(makeInsertPoint(0, onInsert));
+  area.appendChild(makeInsertPoint(0, onInsert, onReorder));
 
   for (let i = 0; i < messages.length; i++) {
     area.appendChild(renderMessageBlock(messages[i], i, callbacks));
-    area.appendChild(makeInsertPoint(i + 1, onInsert));
+    area.appendChild(makeInsertPoint(i + 1, onInsert, onReorder));
   }
 }
 
-function makeInsertPoint(index, onInsert) {
+function makeInsertPoint(index, onInsert, onReorder) {
   const wrap = document.createElement('div');
   wrap.className = 'insert-point';
+  wrap.dataset.insertIndex = index;
 
   const btn = document.createElement('button');
   btn.className = 'insert-btn';
   btn.innerHTML = '<span class="insert-line"></span><span class="insert-icon">+</span><span class="insert-line"></span>';
   btn.addEventListener('click', () => onInsert(index));
   wrap.appendChild(btn);
+
+  // Drop zone for message reorder
+  wrap.addEventListener('dragover', (e) => {
+    if (dragSourceIndex === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    wrap.classList.add('drop-target');
+  });
+  wrap.addEventListener('dragleave', () => wrap.classList.remove('drop-target'));
+  wrap.addEventListener('drop', (e) => {
+    e.preventDefault();
+    wrap.classList.remove('drop-target');
+    if (dragSourceIndex === null) return;
+    const from = dragSourceIndex;
+    // Insert point index = position in array before drop
+    // If dragging down, the target index shifts by -1 since we remove from above
+    let to = index;
+    if (from < to) to--;
+    if (from !== to) onReorder(from, to);
+    dragSourceIndex = null;
+  });
+
   return wrap;
 }
 
@@ -188,9 +216,29 @@ export function renderMessageBlock(msg, index, { onDelete, onEditContent, onTogg
   block.className = `message-block ${msg.role}`;
   block.dataset.index = index;
 
-  // Header row: role badge + delete
+  // Header row: drag handle + role badge + delete
   const header = document.createElement('div');
   header.className = 'message-header';
+
+  const dragHandle = document.createElement('span');
+  dragHandle.className = 'drag-handle';
+  dragHandle.textContent = '⠿';
+  dragHandle.title = 'Drag to reorder';
+
+  // Make block draggable only when initiated from the handle
+  dragHandle.addEventListener('mousedown', () => { block.draggable = true; });
+  block.addEventListener('dragstart', (e) => {
+    dragSourceIndex = index;
+    block.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  });
+  block.addEventListener('dragend', () => {
+    block.draggable = false;
+    block.classList.remove('dragging');
+    dragSourceIndex = null;
+    document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  });
 
   const roleBadge = document.createElement('button');
   roleBadge.className = `role-badge ${msg.role}`;
@@ -226,6 +274,7 @@ export function renderMessageBlock(msg, index, { onDelete, onEditContent, onTogg
 
   actions.appendChild(imageBtn);
   actions.appendChild(deleteBtn);
+  header.appendChild(dragHandle);
   header.appendChild(roleBadge);
   header.appendChild(actions);
   block.appendChild(header);
@@ -297,13 +346,15 @@ export function renderMessageBlock(msg, index, { onDelete, onEditContent, onTogg
     block.appendChild(imgRow);
   }
 
-  // Drag-drop and paste support for images
+  // Drag-drop and paste support for images (only when dropping files, not reordering)
   block.addEventListener('dragover', (e) => {
+    if (dragSourceIndex !== null) return; // reorder in progress, let insert points handle it
     e.preventDefault();
     block.classList.add('drag-over');
   });
   block.addEventListener('dragleave', () => block.classList.remove('drag-over'));
   block.addEventListener('drop', (e) => {
+    if (dragSourceIndex !== null) return; // reorder drop handled by insert points
     e.preventDefault();
     block.classList.remove('drag-over');
     for (const file of e.dataTransfer.files) {
