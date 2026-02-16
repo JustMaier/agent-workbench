@@ -1,14 +1,17 @@
 // app.js — Main entry point: wires state + api + render together
 
 import * as state from './state.js';
-import { fetchConfig, generate } from './api.js';
+import { fetchConfig, generate, FALLBACK_CONFIG } from './api.js';
 import { renderAgentBar, renderMessages, renderMarkdown, escapeHtml, autoResize } from './render.js';
 import { initAssistant } from './assistant.js';
+
+const APIKEY_STORAGE_KEY = 'openrouter-api-key';
 
 let config = { defaultModel: 'anthropic/claude-sonnet-4', models: [], hasApiKey: true };
 let abortController = null;
 let streaming = false;
 let apiKey = '';
+let directMode = false;
 let doneFired = false;
 
 // --- Init ---
@@ -18,7 +21,14 @@ async function init() {
 
   try {
     config = await fetchConfig();
-  } catch { /* use defaults */ }
+  } catch {
+    // No server available (static hosting / GitHub Pages) — use direct mode
+    config = { ...FALLBACK_CONFIG };
+    directMode = true;
+  }
+
+  // If server is up but has no API key, also use direct mode
+  if (!config.hasApiKey) directMode = true;
 
   setupModelSelector();
   setupApiKeyField();
@@ -48,6 +58,7 @@ async function init() {
     },
     getCurrentAgent() { return state.getCurrentAgent(); },
     getApiKey() { return apiKey; },
+    getDirectMode() { return directMode; },
   });
 }
 
@@ -107,15 +118,27 @@ function getModel() {
 function setupApiKeyField() {
   const wrap = document.getElementById('apikey-wrap');
   const input = document.getElementById('apikey-input');
+  const modeLabel = document.getElementById('direct-mode-label');
 
-  if (config.hasApiKey) {
-    wrap.style.display = 'none';
-  } else {
+  if (directMode) {
     wrap.style.display = '';
+    if (modeLabel) modeLabel.style.display = '';
+    // Restore saved key from localStorage
+    const saved = localStorage.getItem(APIKEY_STORAGE_KEY);
+    if (saved) {
+      apiKey = saved;
+      input.value = saved;
+    }
+  } else {
+    wrap.style.display = 'none';
+    if (modeLabel) modeLabel.style.display = 'none';
   }
 
   input.addEventListener('input', () => {
     apiKey = input.value.trim();
+    if (directMode) {
+      localStorage.setItem(APIKEY_STORAGE_KEY, apiKey);
+    }
   });
 }
 
@@ -302,6 +325,7 @@ function startGeneration() {
     apiMessages,
     apiKey,
     {
+      direct: directMode,
       signal: abortController.signal,
       onDelta(delta) {
         fullText += delta;

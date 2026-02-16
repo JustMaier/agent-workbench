@@ -311,6 +311,7 @@ function sendMessage(text) {
     apiMessages,
     callbacks.getApiKey(),
     {
+      direct: callbacks.getDirectMode(),
       signal: abortController.signal,
       onDelta(delta) {
         fullText += delta;

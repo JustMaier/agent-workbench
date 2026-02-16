@@ -2,6 +2,8 @@
 
 A lightweight, browser-based conversation editor for building and testing AI agent prompts. Craft multi-turn conversations with system prompts, generate completions via OpenRouter, and iterate fast — all without leaving your browser.
 
+**[Try it now](https://justmaier.github.io/agent-workbench/)** — no install needed, just bring your OpenRouter API key.
+
 ## Why Agent Workbench?
 
 Most AI playgrounds give you a single chat box. Agent Workbench gives you a **conversation editor** — full control over every message in the thread so you can hand-craft training examples, test edge cases, and fine-tune agent behavior.
@@ -19,6 +21,12 @@ Most AI playgrounds give you a single chat box. Agent Workbench gives you a **co
 
 ## Getting Started
 
+### Option 1: Use it online (no install)
+
+Go to **[justmaier.github.io/agent-workbench](https://justmaier.github.io/agent-workbench/)**, paste your [OpenRouter API key](https://openrouter.ai/keys), and start building. Your key stays in your browser (localStorage) and is sent directly to OpenRouter — no server involved.
+
+### Option 2: Self-host with a shared API key
+
 ```bash
 git clone https://github.com/JustMaier/agent-workbench.git
 cd agent-workbench
@@ -27,7 +35,7 @@ npm install
 npm start                # Opens on http://localhost:3000
 ```
 
-Get an API key at [openrouter.ai](https://openrouter.ai). You can also enter a key directly in the UI if you prefer not to configure one on the server.
+When a server-side `OPENROUTER_API_KEY` is configured, API calls are proxied through the server so the key isn't exposed to the browser.
 
 ## Usage
 
@@ -48,7 +56,7 @@ public/
   index.html            # Single-page app with all HTML + CSS
   app.js                # Main entry: wires state, API, rendering, and assistant
   state.js              # Agent state management with localStorage persistence
-  api.js                # API client: config fetch + SSE streaming
+  api.js                # API client: server-proxied or direct-to-OpenRouter streaming
   render.js             # DOM rendering: agent tabs, messages, markdown, drag-reorder
   assistant.js          # AI assistant widget
 cli/
