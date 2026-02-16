@@ -7,16 +7,22 @@ import { fileURLToPath } from 'node:url';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const PORT = process.env.PORT ?? 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4';
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5';
 
 const MODELS = [
-  'anthropic/claude-sonnet-4',
-  'openai/gpt-4.1-mini',
-  'openai/gpt-4.1-nano',
-  'google/gemini-2.5-flash',
-  'x-ai/grok-3-mini',
-  'meta-llama/llama-4-scout',
-  'deepseek/deepseek-chat-v3-0324:free',
+  'anthropic/claude-opus-4-6',
+  'anthropic/claude-sonnet-4-5',
+  'openai/gpt-5.3',
+  'openai/gpt-5.2',
+  'openai/gpt-5-nano',
+  'x-ai/grok-4.1-fast',
+  'stepfun/step-3.5-flash:free',
+  'openai/gpt-oss-120b:free',
+  'openai/gpt-oss-20b:free',
+  'arcee-ai/trinity-large-preview:free',
+  'z-ai/glm-4.7-flash',
+  'xiaomi/mimo-v2-flash',
+  'nvidia/nemotron-3-nano-30b-a3b',
 ];
 
 // --- MIME types ---
