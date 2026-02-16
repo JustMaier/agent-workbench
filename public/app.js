@@ -119,27 +119,42 @@ function setupApiKeyField() {
   const wrap = document.getElementById('apikey-wrap');
   const input = document.getElementById('apikey-input');
   const modeLabel = document.getElementById('direct-mode-label');
+  const rememberCheck = document.getElementById('apikey-remember');
+  const rememberLabel = document.getElementById('apikey-remember-label');
 
   if (directMode) {
     wrap.style.display = '';
     if (modeLabel) modeLabel.style.display = '';
-    // Restore saved key from localStorage
+    if (rememberLabel) rememberLabel.style.display = '';
+    // Restore saved key from localStorage (only if previously opted in)
     const saved = localStorage.getItem(APIKEY_STORAGE_KEY);
     if (saved) {
       apiKey = saved;
       input.value = saved;
+      if (rememberCheck) rememberCheck.checked = true;
     }
   } else {
     wrap.style.display = 'none';
     if (modeLabel) modeLabel.style.display = 'none';
+    if (rememberLabel) rememberLabel.style.display = 'none';
   }
 
   input.addEventListener('input', () => {
     apiKey = input.value.trim();
-    if (directMode) {
+    if (directMode && rememberCheck?.checked) {
       localStorage.setItem(APIKEY_STORAGE_KEY, apiKey);
     }
   });
+
+  if (rememberCheck) {
+    rememberCheck.addEventListener('change', () => {
+      if (rememberCheck.checked) {
+        if (apiKey) localStorage.setItem(APIKEY_STORAGE_KEY, apiKey);
+      } else {
+        localStorage.removeItem(APIKEY_STORAGE_KEY);
+      }
+    });
+  }
 }
 
 // --- Export ---
