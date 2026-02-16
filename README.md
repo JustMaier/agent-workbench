@@ -1,31 +1,44 @@
 # Agent Workbench
 
-A lightweight, browser-based conversation editor for building and testing AI agent prompts. Craft multi-turn conversations with system prompts, generate completions via OpenRouter, and iterate fast — all without leaving your browser.
+**A multi-turn conversation editor for AI agent development.** Build, test, and iterate on agent prompts and workflows using any model on OpenRouter — right in your browser.
 
-**[Try it now](https://justmaier.github.io/agent-workbench/)** — no install needed, just bring your OpenRouter API key.
+**[Try it now](https://justmaier.github.io/agent-workbench/)** — no install needed, bring your own OpenRouter API key.
+
+---
 
 ## Why Agent Workbench?
 
-Most AI playgrounds give you a single chat box. Agent Workbench gives you a **conversation editor** — full control over every message in the thread so you can hand-craft training examples, test edge cases, and fine-tune agent behavior.
+Building AI agents means crafting multi-turn conversations — system prompts, user messages, assistant responses, tool calls — and testing how they behave across different scenarios. Most AI playgrounds give you a single chat box with no way to edit what came before.
 
-- **Edit any message** — Rewrite user or assistant turns, toggle roles, insert messages anywhere in the conversation
-- **Drag to reorder** — Rearrange messages by dragging the handle
-- **Multiple agents** — Create, rename, duplicate, and switch between agents with tabs (right-click for options)
-- **Any model** — Pick from a curated list or type in any OpenRouter-compatible model ID
-- **Image support** — Drag-and-drop, paste, or add image URLs to any message (auto-converted to base64)
-- **Paste to import** — Paste OpenAI/OpenRouter JSON to instantly create an agent from an existing conversation
-- **Export** — Copy as OpenAI or OpenRouter JSON, or download as a file
-- **AI Assistant** — Built-in chat assistant that can create and edit agents for you
-- **Zero build step** — Pure HTML, CSS, and ES modules. No framework, no bundler, no complexity
-- **Local persistence** — Everything saved in localStorage. No accounts, no cloud sync, no data leaving your machine
+Agent Workbench is a **conversation editor** built for agent developers. You get full control over every message in the thread so you can:
+
+- **Hand-craft multi-turn test cases** for your agents
+- **Edit any message** in the conversation — rewrite turns, swap roles, insert messages anywhere
+- **Compare model behavior** by switching between any OpenRouter model mid-conversation
+- **Build prompt libraries** with multiple agents, each with their own system prompt and conversation history
+- **Iterate fast** — generate a completion, edit the result, regenerate, repeat
+
+Whether you're developing a customer support agent, a coding assistant, or a complex multi-step workflow, Agent Workbench gives you the editing tools that chat interfaces don't.
+
+## Features
+
+- **Multi-turn conversation editing** — Full control over every message: edit content, toggle roles, insert anywhere, drag to reorder
+- **Any OpenRouter model** — Pick from a curated list or type any OpenRouter-compatible model ID (GPT-4o, Claude, Gemini, Llama, Mistral, and more)
+- **Multiple agents** — Create, rename, duplicate, and switch between agents with tabs
+- **System prompt editor** — Define agent behavior with system prompts, test variations side by side
+- **Image support** — Drag-and-drop, paste, or add image URLs to any message for multimodal testing
+- **Import & export** — Paste OpenAI or OpenRouter JSON to import conversations; export in either format
+- **Built-in AI assistant** — A chat assistant that can create and edit agents for you
+- **Works offline** — Everything saved in localStorage. No accounts, no cloud, no data leaves your machine
+- **Zero build step** — Pure HTML, CSS, and ES modules. No framework, no bundler
 
 ## Getting Started
 
-### Option 1: Use it online (no install)
+### Use it online (no install)
 
-Go to **[justmaier.github.io/agent-workbench](https://justmaier.github.io/agent-workbench/)**, paste your [OpenRouter API key](https://openrouter.ai/keys), and start building. Your key stays in your browser (localStorage) and is sent directly to OpenRouter — no server involved.
+Visit **[justmaier.github.io/agent-workbench](https://justmaier.github.io/agent-workbench/)**, enter your [OpenRouter API key](https://openrouter.ai/keys), and start building agents. Your key stays in your browser and is sent directly to OpenRouter — no server involved.
 
-### Option 2: Self-host with a shared API key
+### Self-host with a shared API key
 
 ```bash
 git clone https://github.com/JustMaier/agent-workbench.git
@@ -35,23 +48,46 @@ npm install
 npm start                # Opens on http://localhost:3000
 ```
 
-When a server-side `OPENROUTER_API_KEY` is configured, API calls are proxied through the server so the key isn't exposed to the browser.
+When a server-side API key is configured, requests are proxied through the server so the key isn't exposed to the browser.
 
 ## Usage
 
-- **Create an agent** — Click the `+` tab. Double-click a tab to rename it.
-- **Set a system prompt** — Type in the system prompt field at the top.
-- **Build a conversation** — Use `+ User` and `+ Assistant` to add messages, or click the insert points between existing messages.
-- **Generate a response** — Click `Generate` to stream a completion from the selected model.
-- **Reorder messages** — Grab the `⠿` handle and drag to a new position.
-- **Add images** — Click `+ Image`, drag-and-drop onto a message, or paste an image/URL.
-- **Import a conversation** — Copy OpenAI or OpenRouter JSON and press `Ctrl+V` anywhere.
-- **Export** — Click the `Export` dropdown to copy JSON or download a file.
+| Action | How |
+|--------|-----|
+| Create an agent | Click the `+` tab (double-click to rename) |
+| Set a system prompt | Type in the system prompt field at the top |
+| Add messages | Use `+ User` / `+ Assistant` buttons, or click insert points between messages |
+| Generate a completion | Click `Generate` to stream a response from the selected model |
+| Reorder messages | Drag the `⠿` handle to a new position |
+| Add images | Click `+ Image`, drag-and-drop, or paste an image/URL |
+| Import a conversation | Copy OpenAI or OpenRouter JSON and press `Ctrl+V` |
+| Export | Click the `Export` dropdown to copy or download JSON |
 
-## Project Structure
+## Use Cases
+
+- **Prompt engineering** — Craft and refine system prompts with instant feedback from any model
+- **Agent testing** — Build multi-turn test scenarios to verify agent behavior before deployment
+- **Training data creation** — Hand-build conversation examples for fine-tuning
+- **Model comparison** — Run the same conversation against different models to compare outputs
+- **Workflow prototyping** — Sketch out multi-step agent workflows with full conversation control
+
+---
+
+<details>
+<summary><strong>Technical Details</strong></summary>
+
+### Stack
+
+- **Server**: Node.js HTTP server with SSE streaming (`server.mjs`)
+- **Frontend**: Vanilla ES modules — no framework, no build step
+- **API**: Direct fetch to OpenRouter Chat Completions API
+- **Persistence**: localStorage (no database)
+- **Deployment**: GitHub Pages (static) or self-hosted via Node.js
+
+### Project Structure
 
 ```
-server.mjs              # Node HTTP server: static files + /api/config + /api/generate (SSE)
+server.mjs              # HTTP server: static files + /api/config + /api/generate (SSE)
 public/
   index.html            # Single-page app with all HTML + CSS
   app.js                # Main entry: wires state, API, rendering, and assistant
@@ -60,17 +96,26 @@ public/
   render.js             # DOM rendering: agent tabs, messages, markdown, drag-reorder
   assistant.js          # AI assistant widget
 cli/
-  config.mjs            # CLI: fetch /api/config
-  generate.mjs          # CLI: generate with SSE streaming
   smoke-test.mjs        # Core smoke tests
 ```
 
-## Configuration
+### API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/config` | Returns `{ defaultModel, models[], hasApiKey }` |
+| POST | `/api/generate` | SSE stream: `text_delta`, `content`, `done`, `error` events |
+
+POST body: `{ model, systemPrompt?, messages[] }`. API key via env `OPENROUTER_API_KEY` or `x-api-key` header.
+
+### Configuration
 
 | Environment Variable | Description |
 |---------------------|-------------|
-| `OPENROUTER_API_KEY` | Your OpenRouter API key (or pass via UI) |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key (or provide via UI) |
 | `PORT` | Server port (default: 3000) |
+
+</details>
 
 ## License
 

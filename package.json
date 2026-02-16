@@ -2,7 +2,7 @@
   "name": "agent-workbench",
   "version": "0.1.0",
   "type": "module",
-  "description": "Multi-turn conversation editor for testing agents/prompts using OpenRouter SDK",
+  "description": "Multi-turn conversation editor for AI agent development, prompt testing, and workflow prototyping with OpenRouter",
   "scripts": {
     "start": "node server.mjs",
     "config": "node cli/config.mjs",
