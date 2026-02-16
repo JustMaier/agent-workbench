@@ -451,6 +451,78 @@ function syncUIToAgent() {
   }
 }
 
+// --- Paste-to-import ---
+
+function tryImportFromPaste(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { return false; }
+
+  // Must have a messages array with role+content objects
+  if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) return false;
+  if (!data.messages.every(m => m.role && (m.content !== undefined))) return false;
+
+  // Extract system prompt (first system message, if any)
+  let systemPrompt = '';
+  const messages = [];
+
+  for (const msg of data.messages) {
+    if (msg.role === 'system') {
+      // system content can be string or array
+      systemPrompt = typeof msg.content === 'string'
+        ? msg.content
+        : msg.content?.map(p => p.text || '').join('') || '';
+      continue;
+    }
+
+    // Parse content — string or content-array (OpenRouter/OpenAI multimodal)
+    const parsed = { role: msg.role, content: '', images: [] };
+
+    if (typeof msg.content === 'string') {
+      parsed.content = msg.content;
+    } else if (Array.isArray(msg.content)) {
+      for (const part of msg.content) {
+        if (part.type === 'text') {
+          parsed.content += part.text || '';
+        } else if (part.type === 'input_text') {
+          parsed.content += part.text || '';
+        } else if (part.type === 'image_url' && part.image_url?.url) {
+          parsed.images.push(part.image_url.url);
+        }
+      }
+    }
+
+    messages.push(parsed);
+  }
+
+  if (messages.length === 0 && !systemPrompt) return false;
+
+  // Create new agent with imported data
+  const agent = state.createAgent('Imported');
+  state.updateCurrentAgent({
+    model: data.model || '',
+    systemPrompt,
+    messages,
+  });
+
+  syncUIToAgent();
+  render();
+  showToast(`Imported ${messages.length} messages`);
+  return true;
+}
+
+document.addEventListener('paste', (e) => {
+  // Don't intercept pastes into editable fields
+  const tag = e.target.tagName;
+  if (tag === 'TEXTAREA' || tag === 'INPUT' || e.target.isContentEditable) return;
+
+  const text = e.clipboardData?.getData('text/plain')?.trim();
+  if (!text || text[0] !== '{') return; // quick check — JSON objects start with {
+
+  if (tryImportFromPaste(text)) {
+    e.preventDefault();
+  }
+});
+
 // --- Start ---
 
 init();
