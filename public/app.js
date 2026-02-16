@@ -453,40 +453,86 @@ function syncUIToAgent() {
 
 // --- Paste-to-import ---
 
-function tryImportFromPaste(text) {
+const MAX_IMAGE_DIM = 1024;
+
+function imageUrlToBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      let { width, height } = img;
+      // Downscale if larger than MAX_IMAGE_DIM
+      if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+        const scale = MAX_IMAGE_DIM / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/webp', 0.85));
+    };
+    img.onerror = () => reject(new Error(`Failed to load image: ${url.slice(0, 80)}`));
+    img.src = url;
+  });
+}
+
+async function resolveImageUrl(url) {
+  // Already a data URL — keep as-is
+  if (url.startsWith('data:')) return url;
+  // Remote URL — download, downscale, convert to base64
+  try {
+    return await imageUrlToBase64(url);
+  } catch {
+    // If CORS blocks direct load, try proxying through a canvas-safe fetch
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const base64 = await imageUrlToBase64(objectUrl);
+      URL.revokeObjectURL(objectUrl);
+      return base64;
+    } catch {
+      // Last resort: keep the original URL so it at least renders
+      return url;
+    }
+  }
+}
+
+function parseImportJson(text) {
   let data;
-  try { data = JSON.parse(text); } catch { return false; }
+  try { data = JSON.parse(text); } catch { return null; }
 
-  // Must have a messages array with role+content objects
-  if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) return false;
-  if (!data.messages.every(m => m.role && (m.content !== undefined))) return false;
+  if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) return null;
+  if (!data.messages.every(m => m.role && (m.content !== undefined))) return null;
 
-  // Extract system prompt (first system message, if any)
   let systemPrompt = '';
   const messages = [];
+  const imageUrls = []; // track { msgIndex, imgIndex, url } for async resolution
 
   for (const msg of data.messages) {
     if (msg.role === 'system') {
-      // system content can be string or array
       systemPrompt = typeof msg.content === 'string'
         ? msg.content
         : msg.content?.map(p => p.text || '').join('') || '';
       continue;
     }
 
-    // Parse content — string or content-array (OpenRouter/OpenAI multimodal)
     const parsed = { role: msg.role, content: '', images: [] };
 
     if (typeof msg.content === 'string') {
       parsed.content = msg.content;
     } else if (Array.isArray(msg.content)) {
       for (const part of msg.content) {
-        if (part.type === 'text') {
-          parsed.content += part.text || '';
-        } else if (part.type === 'input_text') {
+        if (part.type === 'text' || part.type === 'input_text') {
           parsed.content += part.text || '';
         } else if (part.type === 'image_url' && part.image_url?.url) {
-          parsed.images.push(part.image_url.url);
+          const imgIndex = parsed.images.length;
+          parsed.images.push(part.image_url.url); // placeholder
+          if (!part.image_url.url.startsWith('data:')) {
+            imageUrls.push({ msgIndex: messages.length, imgIndex, url: part.image_url.url });
+          }
         }
       }
     }
@@ -494,32 +540,55 @@ function tryImportFromPaste(text) {
     messages.push(parsed);
   }
 
-  if (messages.length === 0 && !systemPrompt) return false;
+  if (messages.length === 0 && !systemPrompt) return null;
 
-  // Create new agent with imported data
-  const agent = state.createAgent('Imported');
-  state.updateCurrentAgent({
-    model: data.model || '',
-    systemPrompt,
-    messages,
-  });
+  return { model: data.model || '', systemPrompt, messages, imageUrls };
+}
 
+async function tryImportFromPaste(text) {
+  const parsed = parseImportJson(text);
+  if (!parsed) return false;
+
+  const { model, systemPrompt, messages, imageUrls } = parsed;
+
+  // Create agent immediately with whatever we have (URLs render as <img> anyway)
+  state.createAgent('Imported');
+  state.updateCurrentAgent({ model, systemPrompt, messages });
   syncUIToAgent();
   render();
-  showToast(`Imported ${messages.length} messages`);
+
+  if (imageUrls.length === 0) {
+    showToast(`Imported ${messages.length} messages`);
+    return true;
+  }
+
+  // Resolve remote image URLs → base64 in background
+  showToast(`Imported ${messages.length} messages, converting ${imageUrls.length} image(s)...`);
+
+  let converted = 0;
+  await Promise.all(imageUrls.map(async ({ msgIndex, imgIndex, url }) => {
+    const base64 = await resolveImageUrl(url);
+    messages[msgIndex].images[imgIndex] = base64;
+    converted++;
+  }));
+
+  state.updateCurrentAgent({ messages });
+  render();
+  showToast(`Converted ${converted} image(s) to base64`);
   return true;
 }
 
 document.addEventListener('paste', (e) => {
-  // Don't intercept pastes into editable fields
   const tag = e.target.tagName;
   if (tag === 'TEXTAREA' || tag === 'INPUT' || e.target.isContentEditable) return;
 
   const text = e.clipboardData?.getData('text/plain')?.trim();
-  if (!text || text[0] !== '{') return; // quick check — JSON objects start with {
+  if (!text || text[0] !== '{') return;
 
-  if (tryImportFromPaste(text)) {
+  // Validate synchronously, process async
+  if (parseImportJson(text)) {
     e.preventDefault();
+    tryImportFromPaste(text);
   }
 });
 
