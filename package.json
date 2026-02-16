@@ -1,0 +1,17 @@
+{
+  "name": "agent-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-turn conversation editor for testing agents/prompts using OpenRouter SDK",
+  "scripts": {
+    "start": "node server.mjs",
+    "config": "node cli/config.mjs",
+    "generate": "node cli/generate.mjs",
+    "smoke-test": "node cli/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@openrouter/sdk": "^0.1.0",
+    "dotenv": "^16.4.7"
+  }
+}
