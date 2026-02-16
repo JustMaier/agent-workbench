@@ -417,6 +417,19 @@ function render() {
       };
       reader.readAsDataURL(file);
     },
+    async onAddImageUrl(index, url) {
+      if (!agent.messages[index].images) agent.messages[index].images = [];
+      // Add URL immediately so thumbnail shows while converting
+      const imgIdx = agent.messages[index].images.length;
+      agent.messages[index].images.push(url);
+      state.updateCurrentAgent({ messages: agent.messages });
+      render();
+      // Convert to base64 in background
+      const base64 = await resolveImageUrl(url);
+      agent.messages[index].images[imgIdx] = base64;
+      state.updateCurrentAgent({ messages: agent.messages });
+      render();
+    },
     onRemoveImage(msgIndex, imgIndex) {
       agent.messages[msgIndex].images.splice(imgIndex, 1);
       state.updateCurrentAgent({ messages: agent.messages });
@@ -453,7 +466,7 @@ function syncUIToAgent() {
 
 // --- Paste-to-import ---
 
-const MAX_IMAGE_DIM = 1024;
+const MAX_IMAGE_DIM = 2048;
 
 function imageUrlToBase64(url) {
   return new Promise((resolve, reject) => {
@@ -471,7 +484,7 @@ function imageUrlToBase64(url) {
       canvas.width = width;
       canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/webp', 0.85));
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = () => reject(new Error(`Failed to load image: ${url.slice(0, 80)}`));
     img.src = url;

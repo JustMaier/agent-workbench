@@ -156,11 +156,11 @@ function showContextMenu(x, y, items) {
 
 // --- Messages ---
 
-export function renderMessages(messages, { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onRemoveImage }) {
+export function renderMessages(messages, { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage }) {
   const area = document.getElementById('messages');
   area.innerHTML = '';
 
-  const callbacks = { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onRemoveImage };
+  const callbacks = { onInsert, onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage };
 
   // Insert point at top
   area.appendChild(makeInsertPoint(0, onInsert));
@@ -183,7 +183,7 @@ function makeInsertPoint(index, onInsert) {
   return wrap;
 }
 
-export function renderMessageBlock(msg, index, { onDelete, onEditContent, onToggleRole, onAddImage, onRemoveImage }) {
+export function renderMessageBlock(msg, index, { onDelete, onEditContent, onToggleRole, onAddImage, onAddImageUrl, onRemoveImage }) {
   const block = document.createElement('div');
   block.className = `message-block ${msg.role}`;
   block.dataset.index = index;
@@ -311,10 +311,18 @@ export function renderMessageBlock(msg, index, { onDelete, onEditContent, onTogg
     }
   });
   block.addEventListener('paste', (e) => {
+    // Check for pasted image files
     for (const item of e.clipboardData.items) {
       if (item.type.startsWith('image/')) {
         onAddImage(index, item.getAsFile());
+        return;
       }
+    }
+    // Check for pasted image URL
+    const text = e.clipboardData?.getData('text/plain')?.trim();
+    if (text && /^https?:\/\/.+\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(text)) {
+      e.preventDefault();
+      onAddImageUrl(index, text);
     }
   });
 
