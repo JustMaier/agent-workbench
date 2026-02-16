@@ -1,0 +1,17 @@
+{
+  "name": "Agent Workbench",
+  "description": "Multi-turn conversation editor for testing agents/prompts using OpenRouter",
+  "setup": ["npm install"],
+  "commands": {
+    "deploy": "git pull && npm install && pm2 restart agent-workbench || pm2 start server.mjs --name agent-workbench"
+  },
+  "default": "deploy",
+  "infrastructure": {
+    "subdomain": "workbench",
+    "port": 4005
+  },
+  "logs": {
+    "type": "pm2",
+    "name": "agent-workbench"
+  }
+}
