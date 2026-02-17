@@ -148,6 +148,7 @@ async function handleGenerate(req, res) {
         model: model || DEFAULT_MODEL,
         messages: chatMessages,
         stream: true,
+        stream_options: { include_usage: true },
       }),
       signal: abortController.signal,
     });
@@ -166,6 +167,8 @@ async function handleGenerate(req, res) {
     const decoder = new TextDecoder();
     let buffer = '';
     let fullText = '';
+    let generationId = '';
+    let usage = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -184,6 +187,9 @@ async function handleGenerate(req, res) {
         let chunk;
         try { chunk = JSON.parse(data); } catch { continue; }
 
+        if (chunk.id) generationId = chunk.id;
+        if (chunk.usage) usage = chunk.usage;
+
         const delta = chunk.choices?.[0]?.delta?.content;
         if (delta) {
           fullText += delta;
@@ -194,6 +200,41 @@ async function handleGenerate(req, res) {
 
     if (!aborted) {
       sse(res, { type: 'content', content: fullText });
+
+      // Send usage/cost info
+      let usageSent = false;
+      if (generationId) {
+        // Small delay so OpenRouter can finalize the generation stats
+        await new Promise(r => setTimeout(r, 500));
+        try {
+          const statsRes = await fetch(`https://openrouter.ai/api/v1/generation?id=${generationId}`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+          });
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            if (statsData.data) {
+              sse(res, {
+                type: 'usage',
+                generationId,
+                totalCost: statsData.data.total_cost,
+                tokensPrompt: statsData.data.tokens_prompt,
+                tokensCompletion: statsData.data.tokens_completion,
+              });
+              usageSent = true;
+            }
+          }
+        } catch { /* cost fetch failed, not critical */ }
+      }
+
+      // Fallback: forward token counts from stream if stats fetch didn't work
+      if (!usageSent && usage) {
+        sse(res, {
+          type: 'usage',
+          generationId,
+          usage,
+        });
+      }
+
       sse(res, { type: 'done' });
     }
   } catch (err) {

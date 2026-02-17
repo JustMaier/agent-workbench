@@ -1,7 +1,7 @@
 // app.js — Main entry point: wires state + api + render together
 
 import * as state from './state.js';
-import { fetchConfig, generate, FALLBACK_CONFIG } from './api.js';
+import { fetchConfig, generate, fetchGenerationStats, FALLBACK_CONFIG } from './api.js';
 import { renderAgentBar, renderMessages, renderMarkdown, escapeHtml, autoResize } from './render.js';
 import { initAssistant } from './assistant.js';
 
@@ -368,6 +368,9 @@ function startGeneration() {
         state.updateCurrentAgent({ messages: agent.messages });
         finishStreaming();
       },
+      onUsage(data) {
+        displayCost(data);
+      },
       onDone() {
         if (doneFired) return;
         doneFired = true;
@@ -406,6 +409,49 @@ function updateGenerateButton() {
 function scrollToBottom() {
   const area = document.getElementById('messages');
   area.scrollTop = area.scrollHeight;
+}
+
+function formatCost(cost) {
+  if (cost == null) return null;
+  if (cost < 0.001) return '$' + cost.toFixed(6);
+  if (cost < 0.01) return '$' + cost.toFixed(4);
+  return '$' + cost.toFixed(3);
+}
+
+function displayCost(data) {
+  const el = document.getElementById('generation-cost');
+  if (!el) return;
+
+  const parts = [];
+
+  // Show cost if available
+  if (data.totalCost != null) {
+    parts.push(formatCost(data.totalCost));
+  }
+
+  // Show token counts
+  const prompt = data.tokensPrompt ?? data.usage?.prompt_tokens;
+  const completion = data.tokensCompletion ?? data.usage?.completion_tokens;
+  if (prompt != null && completion != null) {
+    parts.push(`${prompt + completion} tok`);
+  }
+
+  if (parts.length > 0) {
+    el.innerHTML = parts.map(p => `<span>${p}</span>`).join('');
+  }
+
+  // In direct mode, fetch actual cost from generation stats if we only have tokens
+  if (directMode && data.generationId && data.totalCost == null) {
+    setTimeout(async () => {
+      const stats = await fetchGenerationStats(data.generationId, apiKey);
+      if (stats?.total_cost != null) {
+        const costStr = formatCost(stats.total_cost);
+        const tokPart = parts.find(p => p.includes('tok'));
+        const updated = tokPart ? [costStr, tokPart] : [costStr];
+        el.innerHTML = updated.map(p => `<span>${p}</span>`).join('');
+      }
+    }, 1000);
+  }
 }
 
 // --- Render ---

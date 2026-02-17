@@ -542,6 +542,18 @@
     #generate-btn.stop { background: #da3633; border-color: #da3633; }
     #generate-btn.stop:hover { background: #f85149; border-color: #f85149; }
 
+    #generation-cost {
+      font-size: 11px;
+      color: #8b949e;
+      font-family: 'SF Mono', Consolas, monospace;
+      white-space: nowrap;
+      align-self: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1.3;
+    }
+
     /* --- Context Menu --- */
 
     .context-menu {
@@ -876,6 +888,7 @@
     <button class="bar-btn" id="add-user-btn">+ User</button>
     <button class="bar-btn" id="add-assistant-btn">+ Assistant</button>
     <button class="bar-btn" id="generate-btn">Generate</button>
+    <span id="generation-cost"></span>
   </div>
 
   <button class="assistant-fab" id="assistant-fab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6"/></svg></button>

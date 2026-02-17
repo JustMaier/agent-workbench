@@ -26,9 +26,9 @@ export async function fetchConfig() {
   return res.json();
 }
 
-export function generate(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, signal, direct }) {
+export function generate(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, onUsage, signal, direct }) {
   if (direct) {
-    generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, signal });
+    generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, onUsage, signal });
     return;
   }
 
@@ -45,7 +45,7 @@ export function generate(model, systemPrompt, messages, apiKey, { onDelta, onCon
       if (!res.ok) {
         return res.json().then(j => { onError?.(j.error || `HTTP ${res.status}`); });
       }
-      return readSSE(res.body, { onDelta, onContent, onError, onDone });
+      return readSSE(res.body, { onDelta, onContent, onError, onDone, onUsage });
     })
     .catch(err => {
       if (err.name === 'AbortError') return;
@@ -53,9 +53,22 @@ export function generate(model, systemPrompt, messages, apiKey, { onDelta, onCon
     });
 }
 
+export async function fetchGenerationStats(generationId, apiKey) {
+  try {
+    const res = await fetch(`https://openrouter.ai/api/v1/generation?id=${generationId}`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
 // --- Direct-to-OpenRouter (browser → OpenRouter, no server proxy) ---
 
-function generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, signal }) {
+function generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onContent, onError, onDone, onUsage, signal }) {
   if (!apiKey) {
     onError?.('No API key. Enter your OpenRouter API key above.');
     return;
@@ -77,6 +90,7 @@ function generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onCont
       model: model || FALLBACK_CONFIG.defaultModel,
       messages: chatMessages,
       stream: true,
+      stream_options: { include_usage: true },
     }),
     signal,
   })
@@ -88,7 +102,7 @@ function generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onCont
           onError?.(`OpenRouter API error ${res.status}: ${msg}`);
         });
       }
-      return readOpenRouterSSE(res.body, { onDelta, onContent, onError, onDone });
+      return readOpenRouterSSE(res.body, { onDelta, onContent, onError, onDone, onUsage });
     })
     .catch(err => {
       if (err.name === 'AbortError') return;
@@ -97,11 +111,13 @@ function generateDirect(model, systemPrompt, messages, apiKey, { onDelta, onCont
 }
 
 // Parse OpenRouter's native SSE format (Chat Completions streaming)
-async function readOpenRouterSSE(body, { onDelta, onContent, onError, onDone }) {
+async function readOpenRouterSSE(body, { onDelta, onContent, onError, onDone, onUsage }) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let fullText = '';
+  let generationId = '';
+  let usage = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -125,6 +141,9 @@ async function readOpenRouterSSE(body, { onDelta, onContent, onError, onDone }) 
         return;
       }
 
+      if (chunk.id) generationId = chunk.id;
+      if (chunk.usage) usage = chunk.usage;
+
       const delta = chunk.choices?.[0]?.delta?.content;
       if (delta) {
         fullText += delta;
@@ -134,12 +153,13 @@ async function readOpenRouterSSE(body, { onDelta, onContent, onError, onDone }) 
   }
 
   onContent?.(fullText);
+  onUsage?.({ generationId, usage });
   onDone?.();
 }
 
 // --- Server-proxied SSE format (our custom format) ---
 
-async function readSSE(body, { onDelta, onContent, onError, onDone }) {
+async function readSSE(body, { onDelta, onContent, onError, onDone, onUsage }) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -163,6 +183,9 @@ async function readSSE(body, { onDelta, onContent, onError, onDone }) {
           break;
         case 'content':
           onContent?.(chunk.content);
+          break;
+        case 'usage':
+          onUsage?.(chunk);
           break;
         case 'error':
           onError?.(chunk.error);
