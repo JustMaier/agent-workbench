@@ -333,6 +333,19 @@ export function renderMessageBlock(msg, index, { onDelete, onEditContent, onTogg
 
       const img = document.createElement('img');
       img.src = msg.images[i];
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const modal = document.createElement('div');
+        modal.className = 'image-modal';
+        const fullImg = document.createElement('img');
+        fullImg.src = img.src;
+        modal.appendChild(fullImg);
+        modal.addEventListener('click', () => modal.remove());
+        document.addEventListener('keydown', function esc(e) {
+          if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); }
+        });
+        document.body.appendChild(modal);
+      });
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'image-remove';

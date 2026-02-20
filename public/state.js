@@ -32,7 +32,20 @@ function load() {
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ agents, currentId }));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ agents, currentId }));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      // Reload last good state so in-memory data stays consistent
+      load();
+      throw new QuotaError();
+    }
+    throw e;
+  }
+}
+
+export class QuotaError extends Error {
+  constructor() { super('localStorage quota exceeded — too many images or messages. Try deleting unused agents or removing images.'); this.name = 'QuotaError'; }
 }
 
 function makeAgent(name) {

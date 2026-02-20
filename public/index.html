@@ -504,6 +504,29 @@
 
     .image-thumb:hover .image-remove { opacity: 1; }
 
+    .image-thumb img { cursor: pointer; }
+
+    /* --- Image Modal --- */
+
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .image-modal img {
+      max-width: 95vw;
+      max-height: 95vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
     /* --- Bottom Bar --- */
 
     #bottom-bar {

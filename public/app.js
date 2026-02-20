@@ -1,6 +1,7 @@
 // app.js — Main entry point: wires state + api + render together
 
 import * as state from './state.js';
+import { QuotaError } from './state.js';
 import { fetchConfig, generate, fetchGenerationStats, FALLBACK_CONFIG } from './api.js';
 import { renderAgentBar, renderMessages, renderMarkdown, escapeHtml, autoResize } from './render.js';
 import { initAssistant } from './assistant.js';
@@ -478,7 +479,12 @@ function render() {
       render();
     },
     onDuplicate(id) {
-      state.duplicateAgent(id);
+      try {
+        state.duplicateAgent(id);
+      } catch (e) {
+        if (e instanceof QuotaError) { showToast('Storage full — remove images or agents first'); return; }
+        throw e;
+      }
       syncUIToAgent();
       render();
     },
@@ -523,7 +529,12 @@ function render() {
       reader.onload = () => {
         if (!agent.messages[index].images) agent.messages[index].images = [];
         agent.messages[index].images.push(reader.result);
-        state.updateCurrentAgent({ messages: agent.messages });
+        try {
+          state.updateCurrentAgent({ messages: agent.messages });
+        } catch (e) {
+          if (e instanceof QuotaError) { agent.messages[index].images.pop(); showToast('Storage full — image too large or too many images'); return; }
+          throw e;
+        }
         render();
       };
       reader.readAsDataURL(file);
@@ -682,8 +693,13 @@ async function tryImportFromPaste(text) {
   const { model, systemPrompt, messages, imageUrls } = parsed;
 
   // Create agent immediately with whatever we have (URLs render as <img> anyway)
-  state.createAgent('Imported');
-  state.updateCurrentAgent({ model, systemPrompt, messages });
+  try {
+    state.createAgent('Imported');
+    state.updateCurrentAgent({ model, systemPrompt, messages });
+  } catch (e) {
+    if (e instanceof QuotaError) { showToast('Storage full — conversation too large to import. Remove agents or images first.'); return false; }
+    throw e;
+  }
   syncUIToAgent();
   render();
 
@@ -702,7 +718,12 @@ async function tryImportFromPaste(text) {
     converted++;
   }));
 
-  state.updateCurrentAgent({ messages });
+  try {
+    state.updateCurrentAgent({ messages });
+  } catch (e) {
+    if (e instanceof QuotaError) { showToast('Storage full — images too large. Some images may not have been saved.'); render(); return true; }
+    throw e;
+  }
   render();
   showToast(`Converted ${converted} image(s) to base64`);
   return true;
